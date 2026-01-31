@@ -47,11 +47,12 @@ function getAyyamulBidhEvents() {
           if (seen.has(key)) continue;
           seen.add(key);
           const start = new Date(g.gy, g.gm - 1, g.gd, 0, 0, 0);
-          const end = new Date(g.gy, g.gm - 1, g.gd, 23, 59, 59);
+          const end = new Date(g.gy, g.gm - 1, g.gd + 1, 0, 0, 0);
           const monthName = HIJRI_MONTH_NAMES[hm - 1] || `Month ${hm}`;
           events.push({
             start,
             end,
+            allDay: true,
             summary: `Ayyamul Bidh (${monthName} ${hd})`,
             description: `Ayyamul Bidh fasting – ${monthName} ${hd}, ${hy} H. Reference: KHGT Muhammadiyah.`,
             location: '',
@@ -93,6 +94,7 @@ function buildIcs(feedId, name, events) {
     cal.createEvent({
       start: ev.start,
       end: ev.end,
+      allDay: ev.allDay || false,
       summary: ev.summary,
       description: ev.description || '',
       location: ev.location || '',
