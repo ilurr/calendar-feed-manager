@@ -1,4 +1,5 @@
-const ical = require('ical-generator');
+const icalGenerator = require('ical-generator');
+const ical = typeof icalGenerator === 'function' ? icalGenerator : icalGenerator.default;
 
 const registry = require('./feeds-registry.json');
 
