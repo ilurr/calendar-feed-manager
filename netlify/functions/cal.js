@@ -1,7 +1,13 @@
 const icalGenerator = require('ical-generator');
 const ical = typeof icalGenerator === 'function' ? icalGenerator : icalGenerator.default;
+const { toHijri, toGregorian } = require('hijri-converter');
 
 const registry = require('./feeds-registry.json');
+
+const HIJRI_MONTH_NAMES = [
+  'Muharam', 'Safar', 'Rabiulawal', 'Rabiulakhir', 'Jumadilawal', 'Jumadilakhir',
+  'Rajab', 'Syakban', 'Ramadan', 'Syawal', 'Zulkaidah', 'Zulhijah'
+];
 
 /**
  * Proxy an external .ics URL: fetch and return as-is.
@@ -19,16 +25,60 @@ async function fetchUrlIcs(source) {
 }
 
 /**
+ * Ayyamul Bidh: fasting on 13th, 14th, 15th of each Islamic month.
+ * Uses Umm al-Qura conversion (hijri-converter). Reference: KHGT https://khgt.muhammadiyah.or.id/kalendar-hijriah
+ */
+function getAyyamulBidhEvents() {
+  const today = new Date();
+  const gy = today.getFullYear();
+  const gm = today.getMonth() + 1;
+  const gd = today.getDate();
+  const hijriToday = toHijri(gy, gm, gd);
+  const startHy = hijriToday.hy;
+  const events = [];
+  const seen = new Set();
+
+  for (let hy = startHy; hy <= startHy + 2; hy++) {
+    for (let hm = 1; hm <= 12; hm++) {
+      for (const hd of [13, 14, 15]) {
+        try {
+          const g = toGregorian(hy, hm, hd);
+          const key = `${g.gy}-${g.gm}-${g.gd}`;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          const start = new Date(g.gy, g.gm - 1, g.gd, 0, 0, 0);
+          const end = new Date(g.gy, g.gm - 1, g.gd, 23, 59, 59);
+          const monthName = HIJRI_MONTH_NAMES[hm - 1] || `Month ${hm}`;
+          events.push({
+            start,
+            end,
+            summary: `Ayyamul Bidh (${monthName} ${hd})`,
+            description: `Ayyamul Bidh fasting – ${monthName} ${hd}, ${hy} H. Reference: KHGT Muhammadiyah.`,
+            location: '',
+          });
+        } catch (_) {
+          // skip invalid date
+        }
+      }
+    }
+  }
+
+  events.sort((a, b) => a.start.getTime() - b.start.getTime());
+  const cutoff = new Date(today);
+  cutoff.setDate(cutoff.getDate() - 1);
+  return events.filter((ev) => ev.start >= cutoff);
+}
+
+/**
  * Get events for static or api feeds. Add your own feed logic here when you add registry entries.
  * Returns empty array for unknown feeds; implement per feedId/type as needed.
  */
 async function getEventsForFeed(feedId, type, source) {
   if (type === 'static') {
-    // Add static feed handlers here, e.g. if (feedId === 'my-feed') return getMyFeedEvents();
     return [];
   }
   if (type === 'api') {
-    // Add api providers here, e.g. if (source?.provider === 'my-api') return getMyApiEvents(source);
+    if (source?.provider === 'ayyamul-bidh') return getAyyamulBidhEvents();
     return [];
   }
   return [];

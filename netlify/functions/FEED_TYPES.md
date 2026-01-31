@@ -11,8 +11,11 @@ Built-in events in code. No `source` or `source` is null.
 
 ### `api`
 Fetch from an external API and convert to events.
-- **Input:** `source` with `provider` and provider-specific params (e.g. `lat`, `lng` for `sunrise-sunset`).
-- **Output:** Array of events. Implement per-provider in `getEventsForFeed` / helper (e.g. `getApiFastingEvents`).
+- **Input:** `source` with `provider` and provider-specific params.
+- **Output:** Array of events. Implement per-provider in `getEventsForFeed` / helper.
+
+**Providers:**
+- **`ayyamul-bidh`** – Ayyamul Bidh fasting (13th, 14th, 15th of each Islamic month). No extra params. Uses Umm al-Qura conversion (hijri-converter). Reference: [KHGT Kalender Hijriah](https://khgt.muhammadiyah.or.id/kalendar-hijriah).
 
 ### `url`
 Proxy an external .ics URL.
