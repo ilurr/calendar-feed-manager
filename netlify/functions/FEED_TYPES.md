@@ -22,6 +22,17 @@ Proxy an external .ics URL.
 - **Input:** `source.url` (string).
 - **Output:** Raw .ics response body; no conversion. Handler fetches `source.url` and returns it.
 
+### `scrape`
+Crawl a URL for football (or other) fixtures and build events.
+- **Input:** `source.url` (string, required), `source.clubName` (string, optional, used in event descriptions).
+- **Output:** Array of events. Fetches HTML, then tries: (1) JSON-LD Event/SportsEvent in script tags, (2) table parser (Transfermarkt-style: date, time, home, away).
+- **Suggested sources** (open/updated fixture pages you can use as URL):
+  - **Transfermarkt** (club schedule): e.g. `https://www.transfermarkt.com/inter-mailand/spielplan/verein/46/saison_id/2024` (change club and season).
+  - **Transfermarkt** (league schedule): e.g. `https://www.transfermarkt.com/serie-a/spielplan/wettbewerb/IT1/saison_id/2024`.
+  - **Wikipedia** (season article with fixture table): e.g. "2024–25 Inter Milan season" fixture section.
+  - **Official league sites**: Serie A, Premier League, etc. often have fixture pages (check for JSON-LD or simple tables).
+  - **Stanzacal / .ics feeds**: prefer `type: "url"` and use the .ics URL directly; use `scrape` only when no .ics is available.
+
 ## Adding a new feed type
 
 1. Add a new `type` value and handle it in `cal.js`:

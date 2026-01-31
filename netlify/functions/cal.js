@@ -1,6 +1,7 @@
 const icalGenerator = require('ical-generator');
 const ical = typeof icalGenerator === 'function' ? icalGenerator : icalGenerator.default;
 const { toHijri, toGregorian } = require('hijri-converter');
+const cheerio = require('cheerio');
 
 const registry = require('./feeds-registry.json');
 
@@ -71,17 +72,153 @@ function getAyyamulBidhEvents() {
 }
 
 /**
- * Get events for static or api feeds. Add your own feed logic here when you add registry entries.
- * Returns empty array for unknown feeds; implement per feedId/type as needed.
+ * Fetch HTML from a URL for crawling.
+ */
+async function fetchHtml(url) {
+  if (!url || typeof url !== 'string') return null;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (compatible; CalendarSync/1.0; +https://github.com/calendar-ios-sync)',
+        'Accept': 'text/html,application/xhtml+xml',
+      },
+    });
+    if (!res.ok) return null;
+    return await res.text();
+  } catch (_) {
+    return null;
+  }
+}
+
+/**
+ * Parse JSON-LD Event or SportsEvent from page script tags.
+ */
+function parseJsonLdEvents(html, clubName) {
+  const events = [];
+  const ldJson = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+  if (!ldJson) return events;
+  for (const block of ldJson) {
+    const match = block.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
+    if (!match) continue;
+    try {
+      let data = JSON.parse(match[1].trim());
+      if (!Array.isArray(data)) data = [data];
+      for (const item of data) {
+        const type = item['@type'];
+        if (type !== 'Event' && type !== 'SportsEvent') continue;
+        const startStr = item.startDate || item.datePublished;
+        const endStr = item.endDate || startStr;
+        const name = item.name || item.description || 'Match';
+        const loc = (item.location && (item.location.name || item.location.address)) || '';
+        if (!startStr) continue;
+        const start = new Date(startStr);
+        const end = endStr ? new Date(endStr) : new Date(start.getTime() + 2 * 60 * 60 * 1000);
+        if (isNaN(start.getTime())) continue;
+        events.push({
+          start,
+          end,
+          allDay: false,
+          summary: name,
+          description: clubName ? `${clubName} – ${name}` : name,
+          location: typeof loc === 'string' ? loc : '',
+        });
+      }
+    } catch (_) {
+      // skip invalid JSON
+    }
+  }
+  return events;
+}
+
+/**
+ * Parse Transfermarkt-style fixture table (Datum, Uhrzeit, Heimmannschaft, Gastmannschaft).
+ * Also tries generic tables with date + two team-like cells.
+ */
+function parseTableFixtures(html, clubName) {
+  const events = [];
+  const $ = cheerio.load(html);
+  const dateRe = /(\d{1,2})[.\/\-](\d{1,2})[.\/\-](\d{2,4})/;
+  const timeRe = /(\d{1,2}):(\d{2})/;
+
+  $('table tr').each((_, row) => {
+    const cells = $(row).find('td');
+    if (cells.length < 3) return;
+    let dateStr = '';
+    let timeStr = '';
+    let home = '';
+    let away = '';
+    cells.each((i, el) => {
+      const text = $(el).text().trim();
+      if (dateRe.test(text) && !timeRe.test(text)) dateStr = text;
+      else if (timeRe.test(text)) timeStr = text;
+      else if (text.length > 2 && text.length < 50 && !/^\d+$/.test(text)) {
+        if (!home) home = text;
+        else if (!away) away = text;
+      }
+    });
+    if (!dateStr || !home || !away) return;
+    const dateMatch = dateStr.match(dateRe);
+    if (!dateMatch) return;
+    const [, d, m, y] = dateMatch;
+    const year = y.length === 2 ? 2000 + parseInt(y, 10) : parseInt(y, 10);
+    const month = parseInt(m, 10) - 1;
+    const day = parseInt(d, 10);
+    let hour = 15;
+    let min = 0;
+    if (timeStr) {
+      const tMatch = timeStr.match(timeRe);
+      if (tMatch) {
+        hour = parseInt(tMatch[1], 10);
+        min = parseInt(tMatch[2], 10);
+      }
+    }
+    const start = new Date(year, month, day, hour, min, 0);
+    const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+    const summary = `${home} – ${away}`;
+    events.push({
+      start,
+      end,
+      allDay: false,
+      summary,
+      description: clubName ? `${clubName} – ${summary}` : summary,
+      location: '',
+    });
+  });
+
+  return events;
+}
+
+/**
+ * Global football schedule crawl: fetch URL, try JSON-LD then table parser.
+ * source: { url, clubName?, provider? }
+ */
+async function getFootballScheduleEvents(source) {
+  const url = source?.url;
+  const clubName = source?.clubName || '';
+  if (!url || typeof url !== 'string') return [];
+
+  const html = await fetchHtml(url);
+  if (!html) return [];
+
+  let events = parseJsonLdEvents(html, clubName);
+  if (events.length === 0) events = parseTableFixtures(html, clubName);
+
+  events.sort((a, b) => a.start.getTime() - b.start.getTime());
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() - 1);
+  return events.filter((ev) => ev.start >= cutoff);
+}
+
+/**
+ * Get events for static, api, or scrape feeds.
  */
 async function getEventsForFeed(feedId, type, source) {
-  if (type === 'static') {
-    return [];
-  }
+  if (type === 'static') return [];
   if (type === 'api') {
     if (source?.provider === 'ayyamul-bidh') return getAyyamulBidhEvents();
     return [];
   }
+  if (type === 'scrape') return getFootballScheduleEvents(source);
   return [];
 }
 
