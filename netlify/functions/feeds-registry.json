@@ -9,7 +9,7 @@
   },
   {
     "id": "ayyamul-bidh",
-    "name": "Ayyamul Bidh (13-14-15)",
+    "name": "Ayyamul Bidh",
     "type": "api",
     "source": {
       "provider": "ayyamul-bidh"
