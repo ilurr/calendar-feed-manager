@@ -1,26 +1,10 @@
 [
   {
-    "id": "football",
-    "name": "Serie A",
-    "type": "static",
-    "source": null
-  },
-  {
-    "id": "fasting",
-    "name": "Fasting times",
-    "type": "api",
-    "source": {
-      "provider": "sunrise-sunset",
-      "lat": 41.9,
-      "lng": 12.5
-    }
-  },
-  {
-    "id": "holidays-it",
-    "name": "Italy holidays",
+    "id": "inter-25-26",
+    "name": "Inter 25/26",
     "type": "url",
     "source": {
-      "url": "https://calendar.google.com/calendar/ical/en.italy%23holiday%40group.v.calendar.google.com/public/basic.ics"
+      "url": "https://app.stanzacal.com/api/calendar/webcal/inter/65f18722ad1fa93828fcce93/678387aefd4be8a532bed99a.ics"
     }
   }
 ]
