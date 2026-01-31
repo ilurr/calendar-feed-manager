@@ -32,6 +32,7 @@ Crawl a URL for football (or other) fixtures and build events.
   - **Wikipedia** (season article with fixture table): e.g. "2024–25 Inter Milan season" fixture section.
   - **Official league sites**: Serie A, Premier League, etc. often have fixture pages (check for JSON-LD or simple tables).
   - **Stanzacal / .ics feeds**: prefer `type: "url"` and use the .ics URL directly; use `scrape` only when no .ics is available.
+  - **Liga Indonesia Baru** (club schedule): e.g. `https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA`. Uses Indonesian date format (DD Month YYYY) and match line (TEAM FT score TEAM or TEAM HH:MM TEAM). Fixture details may be loaded via AJAX; parser extracts dates from static HTML and creates events (with match summary when present).
 
 ## Adding a new feed type
 
