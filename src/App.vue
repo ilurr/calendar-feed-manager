@@ -1,19 +1,10 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
-const STORAGE_KEY = 'calendar-sync-hidden'
-
 const feeds = ref([])
 const loading = ref(true)
-const hiddenIds = ref([])
 
 onMounted(async () => {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (raw) hiddenIds.value = JSON.parse(raw)
-  } catch (_) {
-    hiddenIds.value = []
-  }
   try {
     const base = typeof window !== 'undefined' ? window.location.origin : ''
     const res = await fetch(`${base}/.netlify/functions/feeds`)
@@ -32,9 +23,7 @@ onMounted(async () => {
   }
 })
 
-const visibleFeeds = computed(() =>
-  feeds.value.filter((f) => !hiddenIds.value.includes(f.id))
-)
+const visibleFeeds = computed(() => feeds.value)
 
 function subscribeUrl(feedId) {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -45,13 +34,6 @@ function webcalUrl(feedId) {
   if (typeof window === 'undefined') return subscribeUrl(feedId)
   const protocol = window.location.protocol === 'https:' ? 'webcal:' : 'webcal:'
   return `${protocol}//${window.location.host}/cal/${feedId}.ics`
-}
-
-function removeFeed(feedId) {
-  if (!hiddenIds.value.includes(feedId)) {
-    hiddenIds.value = [...hiddenIds.value, feedId]
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(hiddenIds.value))
-  }
 }
 
 function copyUrl(feedId) {
@@ -69,35 +51,18 @@ const showAdmin = ref(false)
 const newFeed = ref({
   id: '',
   name: '',
-  type: 'url',
   sourceUrl: '',
 })
 const generatedJson = ref('')
 
 function generateFeedJson() {
-  const { id, name, type, sourceUrl } = newFeed.value
-  if (!id.trim() || !name.trim()) {
+  const { id, name, sourceUrl } = newFeed.value
+  if (!id.trim() || !name.trim() || !sourceUrl.trim()) {
     generatedJson.value = ''
     return
   }
-  if (type === 'url' && sourceUrl.trim()) {
-    generatedJson.value = JSON.stringify(
-      { id: id.trim(), name: name.trim(), type: 'url', source: { url: sourceUrl.trim() } },
-      null,
-      2
-    )
-    return
-  }
-  if (type === 'static') {
-    generatedJson.value = JSON.stringify(
-      { id: id.trim(), name: name.trim(), type: 'static', source: null },
-      null,
-      2
-    )
-    return
-  }
   generatedJson.value = JSON.stringify(
-    { id: id.trim(), name: name.trim(), type, source: sourceUrl.trim() ? { url: sourceUrl.trim() } : null },
+    { id: id.trim(), name: name.trim(), type: 'url', source: { url: sourceUrl.trim() } },
     null,
     2
   )
@@ -135,18 +100,11 @@ function generateFeedJson() {
             >
               {{ copyFeedback === feed.id ? 'Copied!' : 'Copy URL' }}
             </button>
-            <button
-              type="button"
-              class="inline-flex items-center px-3 py-1.5 rounded-md border border-red-200 text-red-700 text-sm hover:bg-red-50"
-              @click="removeFeed(feed.id)"
-            >
-              Remove from list
-            </button>
           </div>
         </li>
       </ul>
       <p v-if="!loading && visibleFeeds.length === 0" class="text-gray-500 mt-4">
-        No calendars in your list. Remove the filter or add feeds in the registry.
+        No calendars in your list. Add feeds in the registry.
       </p>
       <p class="text-sm text-gray-500 mt-6">
         Subscribe using &quot;Add to Calendar&quot; or copy the URL and add it in iOS/Mac Calendar. To unsubscribe, remove the calendar in the Calendar app.
@@ -184,18 +142,6 @@ function generateFeedJson() {
               />
             </label>
             <label class="block text-sm font-medium text-gray-700">
-              Type
-              <select
-                v-model="newFeed.type"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                @change="generateFeedJson"
-              >
-                <option value="static">static</option>
-                <option value="url">url (proxy .ics)</option>
-                <option value="api">api</option>
-              </select>
-            </label>
-            <label v-if="newFeed.type === 'url'" class="block text-sm font-medium text-gray-700">
               Source URL (.ics)
               <input
                 v-model="newFeed.sourceUrl"
