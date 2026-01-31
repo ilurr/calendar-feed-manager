@@ -26,6 +26,20 @@ netlify dev
 
 Then open the URL shown (e.g. `http://localhost:8888`). You can subscribe to `http://localhost:8888/cal/football.ics` in Calendar for local testing.
 
+### Tracing the scrape function locally
+
+When you hit a **scrape** feed (e.g. `/cal/<scrape-feed-id>.ics`) while running `netlify dev`, the function logs to the **terminal** so you can trace the crawl:
+
+- `[cal scrape] getFootballScheduleEvents` – URL and club name
+- `[cal scrape] fetchHtml` – request URL, then `ok` (bytes) or `fail` / `error`
+- `[cal scrape] parseJsonLdEvents` – number of ld+json blocks, then events found
+- `[cal scrape] parseTableFixtures` – events found from table
+- `[cal scrape] getFootballScheduleEvents done` – final event count after filter
+
+Tracing is on when `NODE_ENV !== 'production'` (so it runs under `netlify dev`). To force it on in production, set env `TRACE_SCRAPE=1` in Netlify.
+
+**Steps:** Run `netlify dev`, open `http://localhost:8888/cal/<your-scrape-feed-id>.ics` in the browser (or trigger the feed from the app), then watch the terminal where `netlify dev` is running.
+
 ## Deploy to Netlify
 
 1. Push this repo to GitHub.

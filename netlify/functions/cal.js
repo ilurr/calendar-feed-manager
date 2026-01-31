@@ -71,11 +71,18 @@ function getAyyamulBidhEvents() {
   return events.filter((ev) => ev.start >= cutoff);
 }
 
+const TRACE_SCRAPE = process.env.TRACE_SCRAPE === '1' || process.env.NODE_ENV !== 'production';
+
+function trace(...args) {
+  if (TRACE_SCRAPE) console.log('[cal scrape]', ...args);
+}
+
 /**
  * Fetch HTML from a URL for crawling.
  */
 async function fetchHtml(url) {
   if (!url || typeof url !== 'string') return null;
+  trace('fetchHtml', url);
   try {
     const res = await fetch(url, {
       headers: {
@@ -83,9 +90,15 @@ async function fetchHtml(url) {
         'Accept': 'text/html,application/xhtml+xml',
       },
     });
-    if (!res.ok) return null;
-    return await res.text();
-  } catch (_) {
+    if (!res.ok) {
+      trace('fetchHtml fail', res.status, res.statusText);
+      return null;
+    }
+    const html = await res.text();
+    trace('fetchHtml ok', html?.length, 'bytes');
+    return html;
+  } catch (err) {
+    trace('fetchHtml error', err?.message || err);
     return null;
   }
 }
@@ -96,7 +109,11 @@ async function fetchHtml(url) {
 function parseJsonLdEvents(html, clubName) {
   const events = [];
   const ldJson = html.match(/<script[^>]*type\s*=\s*["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
-  if (!ldJson) return events;
+  if (!ldJson) {
+    trace('parseJsonLdEvents', 'no ld+json blocks');
+    return events;
+  }
+  trace('parseJsonLdEvents', ldJson.length, 'ld+json block(s)');
   for (const block of ldJson) {
     const match = block.match(/<script[^>]*>([\s\S]*?)<\/script>/i);
     if (!match) continue;
@@ -123,10 +140,11 @@ function parseJsonLdEvents(html, clubName) {
           location: typeof loc === 'string' ? loc : '',
         });
       }
-    } catch (_) {
-      // skip invalid JSON
+    } catch (e) {
+      if (TRACE_SCRAPE) trace('parseJsonLdEvents JSON error', e?.message);
     }
   }
+  trace('parseJsonLdEvents', 'found', events.length, 'event(s)');
   return events;
 }
 
@@ -185,6 +203,7 @@ function parseTableFixtures(html, clubName) {
     });
   });
 
+  trace('parseTableFixtures', 'found', events.length, 'event(s)');
   return events;
 }
 
@@ -195,18 +214,33 @@ function parseTableFixtures(html, clubName) {
 async function getFootballScheduleEvents(source) {
   const url = source?.url;
   const clubName = source?.clubName || '';
-  if (!url || typeof url !== 'string') return [];
+  trace('getFootballScheduleEvents', { url, clubName });
+  if (!url || typeof url !== 'string') {
+    trace('getFootballScheduleEvents', 'no url, return []');
+    return [];
+  }
 
   const html = await fetchHtml(url);
-  if (!html) return [];
+  if (!html) {
+    trace('getFootballScheduleEvents', 'no html, return []');
+    return [];
+  }
 
   let events = parseJsonLdEvents(html, clubName);
-  if (events.length === 0) events = parseTableFixtures(html, clubName);
+  const fromJsonLd = events.length;
+  if (events.length === 0) {
+    events = parseTableFixtures(html, clubName);
+    trace('getFootballScheduleEvents', 'used table parser');
+  } else {
+    trace('getFootballScheduleEvents', 'used JSON-LD parser');
+  }
 
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 1);
-  return events.filter((ev) => ev.start >= cutoff);
+  const filtered = events.filter((ev) => ev.start >= cutoff);
+  trace('getFootballScheduleEvents', 'done', filtered.length, 'event(s) after filter');
+  return filtered;
 }
 
 /**
