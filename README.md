@@ -1,12 +1,38 @@
 # Calendar Sync
 
-A small app to manage calendar feed subscriptions so you can subscribe to them in iOS/Mac Calendar (and other clients). Each feed is exposed as a public `.ics` subscribe URL (e.g. `https://yoursite.netlify.app/cal/football.ics`). Add the URL once in Apple Calendar; events stay in sync. To unsubscribe, remove the calendar in the Calendar app.
+A mini app to manage calendar feed subscriptions for iOS/Mac Calendar (and other clients). Each feed is exposed as a public `.ics` URL. Add the URL once in Apple Calendar; events stay in sync. To unsubscribe, remove the calendar in the Calendar app.
+
+**Demo:** https://gakpaketelor-calender.netlify.app/
+
+## Features
+
+- **Subscribe to .ics feeds** – Add to iOS/macOS Calendar with one click (webcal) or copy URL
+- **URL proxy** – Proxy external .ics URLs through your own domain
+- **API feeds** – Generate calendars from APIs (e.g. Ayyamul Bidh fasting schedule using Hijri conversion)
+- **Scrape/crawl feeds** – Crawl football schedules from websites:
+  - [Liga Indonesia Baru](https://www.ligaindonesiabaru.com/) – club fixture pages
+  - [Transfermarkt Indonesia](https://www.transfermarkt.co.id/) – club schedule pages with Home/Away detection
+- **Refresh button** – Re-crawl source data; subscribers get updates on next sync
+- **WIB timezone** – Indonesian football times are correctly converted to UTC for calendar apps
 
 ## Stack
 
 - **Frontend:** Vue 3, Vite, Tailwind CSS
 - **Backend:** Netlify Functions (Node) for feed list and `.ics` generation
 - **Hosting:** Netlify (free tier)
+
+## Feed types
+
+| Type | Description | Source shape |
+|------|-------------|--------------|
+| `url` | Proxy an external .ics URL | `{ url: "https://..." }` |
+| `api` | Generate events from code/API | `{ provider: "ayyamul-bidh" }` |
+| `scrape` | Crawl a website for fixtures | `{ url: "https://...", clubName?: "..." }` |
+
+### Supported scrape sources
+
+- **Liga Indonesia Baru** – `https://www.ligaindonesiabaru.com/clubs/single/...`
+- **Transfermarkt Indonesia** – `https://www.transfermarkt.co.id/.../spielplan/verein/...`
 
 ## Run locally
 
@@ -15,7 +41,7 @@ npm install
 npm run dev
 ```
 
-The Vue app runs at `http://localhost:5173`. Feed list and calendar URLs will work only when the Netlify Functions are available (e.g. with `netlify dev` or after deploy).
+The Vue app runs at `http://localhost:5173`. Feed list and calendar URLs require Netlify Functions (use `netlify dev`).
 
 ### With Netlify Dev (functions + app)
 
@@ -24,59 +50,90 @@ npm install -g netlify-cli   # once
 netlify dev
 ```
 
-Then open the URL shown (e.g. `http://localhost:8888`). You can subscribe to `http://localhost:8888/cal/football.ics` in Calendar for local testing.
+Open `http://localhost:8888`. Subscribe to `http://localhost:8888/cal/<feed-id>.ics` for local testing.
 
-### Tracing the scrape function locally
+### Tracing scrape locally
 
-When you hit a **scrape** feed (e.g. `/cal/<scrape-feed-id>.ics`) while running `netlify dev`, the function logs to the **terminal** so you can trace the crawl:
+When you hit a **scrape** feed while running `netlify dev`, the function logs to the terminal:
 
 - `[cal scrape] getFootballScheduleEvents` – URL and club name
 - `[cal scrape] fetchHtml` – request URL, then `ok` (bytes) or `fail` / `error`
-- `[cal scrape] parseJsonLdEvents` – number of ld+json blocks, then events found
-- `[cal scrape] parseTableFixtures` – events found from table
-- `[cal scrape] getFootballScheduleEvents done` – final event count after filter
+- `[cal scrape] parseLigaIndonesiaBaru` – events found
+- `[cal scrape] parseTransfermarkt` – events found
+- `[cal scrape] getFootballScheduleEvents done` – final event count
 
-Tracing is on when `NODE_ENV !== 'production'` (so it runs under `netlify dev`). To force it on in production, set env `TRACE_SCRAPE=1` in Netlify.
-
-**Steps:** Run `netlify dev`, open `http://localhost:8888/cal/<your-scrape-feed-id>.ics` in the browser (or trigger the feed from the app), then watch the terminal where `netlify dev` is running.
+Tracing is on when `NODE_ENV !== 'production'`. To force it in production, set env `TRACE_SCRAPE=1` in Netlify.
 
 ## Deploy to Netlify
 
 1. Push this repo to GitHub.
 2. In [Netlify](https://app.netlify.com): **Add new site → Import an existing project** → choose the repo.
-3. Build settings (usually detected):
+3. Build settings (usually auto-detected):
    - **Build command:** `npm run build`
    - **Publish directory:** `dist`
    - **Functions directory:** `netlify/functions`
 4. Deploy. Your site will be at `https://<name>.netlify.app`.
 
-Subscribe to a calendar: open the app, click **Add to Calendar** for a feed, or copy the feed URL and in iOS/Mac Calendar add a new calendar subscription with that URL. To unsubscribe, remove the calendar in the Calendar app.
-
 ## Feed registry
 
-Feeds are defined in **`netlify/functions/feeds-registry.json`**. Each entry has:
+Feeds are defined in `netlify/functions/feeds-registry.json`. Example entries:
 
-- `id` – unique slug (used in URLs, e.g. `football` → `/cal/football.ics`)
-- `name` – display name
-- `type` – `static` | `api` | `url`
-- `source` – optional; shape depends on `type`
+```json
+[
+  {
+    "id": "inter-25-26",
+    "name": "Inter 25/26",
+    "type": "url",
+    "source": { "url": "https://app.stanzacal.com/api/calendar/webcal/inter/..." }
+  },
+  {
+    "id": "ayyamul-bidh",
+    "name": "Ayyamul Bidh",
+    "type": "api",
+    "source": { "provider": "ayyamul-bidh" }
+  },
+  {
+    "id": "persebaya-26",
+    "name": "Persebaya 2026",
+    "type": "scrape",
+    "source": {
+      "url": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA",
+      "clubName": "Persebaya Surabaya"
+    }
+  },
+  {
+    "id": "persebaya-26-tm",
+    "name": "Persebaya 2026 (Transfermarkt)",
+    "type": "scrape",
+    "source": {
+      "url": "https://www.transfermarkt.co.id/persebaya-surabaya/spielplan/verein/31444",
+      "clubName": "Persebaya Surabaya"
+    }
+  }
+]
+```
 
 ## Adding a new feed
 
-1. Edit `netlify/functions/feeds-registry.json` and add an entry (or use the **Add feed (admin)** section in the app to generate the JSON, then paste it into the file).
-2. If the feed type is already supported (`static`, `url`, or an existing `api` provider), redeploy. The new feed will appear and be available at `/cal/<id>.ics`.
-3. If you need a **new feed type** (e.g. a new API or scraper), see below.
+1. Edit `netlify/functions/feeds-registry.json` (or use the **Add feed (admin)** section in the app to generate JSON).
+2. If the type is supported (`url`, `api`, `scrape`), redeploy. The feed appears at `/cal/<id>.ics`.
+3. For a **new scrape source**, add a parser in `netlify/functions/cal.js` and wire it in `getFootballScheduleEvents`.
 
 ## Adding a new feed type
 
-1. **Implement the type in `netlify/functions/cal.js`:**
-   - Either return an array of events `{ start, end, summary, description?, location? }` and the handler will build the `.ics`, or
-   - Return a raw `.ics` string (e.g. for `url` type) and send it in the response.
-2. **Extend `getEventsForFeed`** (or the URL branch) so that when `type` and `source` match your new type, you fetch/transform data and return events or `.ics`.
-3. **Document the type** and `source` shape in `netlify/functions/FEED_TYPES.md`.
-4. Add a feed entry in `feeds-registry.json` with that `type` and the right `source`.
+1. Implement in `netlify/functions/cal.js`:
+   - Return an array of events `{ start, end, summary, description?, location?, allDay? }`, or
+   - Return raw `.ics` string (for URL proxies).
+2. Extend `getEventsForFeed` to handle your new type.
+3. Document the type in `netlify/functions/FEED_TYPES.md`.
 
 See `netlify/functions/FEED_TYPES.md` for the feed type contract and event shape.
+
+## How subscribers get updates
+
+- Calendar apps (iOS, macOS, Google Calendar) refetch .ics URLs periodically (every few hours).
+- Scraped feeds are cached 5 minutes at CDN; after that, requests trigger a fresh crawl.
+- Use the **Refresh** button to re-crawl immediately. To force your calendar app to update, remove and re-add the subscription.
 
 ## License
 
