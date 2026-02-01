@@ -30,7 +30,8 @@
     "type": "scrape",
     "source": {
       "url": "https://www.transfermarkt.co.id/persebaya-surabaya/spielplan/verein/31444",
-      "clubName": "Persebaya Surabaya"
+      "clubName": "Persebaya Surabaya",
+      "stadiumSourceUrl": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA"
     }
   }
 ]

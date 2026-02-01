@@ -341,7 +341,6 @@ function parseLigaIndonesiaBaru(html, clubName) {
     let hour = 19;
     let min = 0;
     let summary = clubName ? `${clubName} – Match` : 'Match';
-    let location = '';
 
     const timeMatch = block.match(timeRe);
     if (timeMatch) {
@@ -349,28 +348,58 @@ function parseLigaIndonesiaBaru(html, clubName) {
       min = parseInt(timeMatch[2], 10);
     }
 
-    // Pipes between team and score: **TEAM1**|FT0:1|**TEAM2** or **TEAM1**|19:00|**TEAM2**
+    // Same output format as parseTransfermarkt: summary Home = "club – opponent", Away = "opponent – club"; short name Persebaya Surabaya → Persebaya.
+    const clubShort = !clubName ? '' : clubName === 'Persebaya Surabaya' ? 'Persebaya' : clubName;
+    let homeAway = '';
+    let opponent = '';
+
+    let stadium = '';
+
     const teamMatch = block.match(/\*\*([^*]+)\*\*[\s|]*(?:FT\s*\d+\s*:\s*\d+|\d{1,2}\s*:\s*\d{2}|:)[\s|]*\*\*([^*]+)\*\*/);
     if (teamMatch) {
-      summary = `${teamMatch[1].trim()} – ${teamMatch[2].trim()}`;
+      const t1 = teamMatch[1].trim();
+      const t2 = teamMatch[2].trim();
+      const ourFirst = clubName && (normTeam(t1) === normTeam(clubName) || normTeam(t1).includes(normTeam(clubName)) || normTeam(clubName).includes(normTeam(t1)));
+      if (clubName) {
+        homeAway = ourFirst ? 'H' : 'A';
+        opponent = ourFirst ? t2 : t1;
+        summary = homeAway === 'A' ? `${opponent} – ${clubShort}` : `${clubShort} – ${opponent}`;
+      } else {
+        summary = `${t1} – ${t2}`;
+      }
       const venueMatch = block.replace(teamMatch[0], '').trim().match(/\s+([A-Z][A-Z\s]+)$/);
-      if (venueMatch) location = venueMatch[1].trim();
+      if (venueMatch) stadium = venueMatch[1].trim();
     } else {
       const twoTeams = block.match(/([A-Z][A-Za-z0-9\s.]+)[\s|]+(?:FT\s*\d+\s*:\s*\d+|\d{1,2}\s*:\s*\d{2}|:)[\s|]+([A-Z][A-Za-z0-9\s.]+)/);
       if (twoTeams) {
-        summary = `${twoTeams[1].trim()} – ${twoTeams[2].trim()}`;
+        const t1 = twoTeams[1].trim();
+        const t2 = twoTeams[2].trim();
+        const ourFirst = clubName && (normTeam(t1) === normTeam(clubName) || normTeam(t1).includes(normTeam(clubName)) || normTeam(clubName).includes(normTeam(t1)));
+        if (clubName) {
+          homeAway = ourFirst ? 'H' : 'A';
+          opponent = ourFirst ? t2 : t1;
+          summary = homeAway === 'A' ? `${opponent} – ${clubShort}` : `${clubShort} – ${opponent}`;
+        } else {
+          summary = `${t1} – ${t2}`;
+        }
         const after = block.substring(block.indexOf(twoTeams[2]) + twoTeams[2].length).trim();
         const venue = after.match(/\s+([A-Z][A-Z\s]{3,})$/);
-        if (venue) location = venue[1].trim();
+        if (venue) stadium = venue[1].trim();
       } else if (clubName && fixtureByDate.size > 0) {
         const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
         if (fixtureByDate.has(dateKey)) {
           const [t1, t2] = fixtureByDate.get(dateKey);
-          const opp = normTeam(t1) === normTeam(clubName) || normTeam(t1).includes(normTeam(clubName)) || normTeam(clubName).includes(normTeam(t1)) ? t2 : t1;
-          summary = `${clubName} – ${opp}`;
+          const ourFirst = normTeam(t1) === normTeam(clubName) || normTeam(t1).includes(normTeam(clubName)) || normTeam(clubName).includes(normTeam(t1));
+          homeAway = ourFirst ? 'H' : 'A';
+          opponent = ourFirst ? t2 : t1;
+          summary = homeAway === 'A' ? `${opponent} – ${clubShort}` : `${clubShort} – ${opponent}`;
         }
       }
     }
+
+    const venueLabel = homeAway === 'H' ? 'Home' : homeAway === 'A' ? 'Away' : '';
+    const description = venueLabel ? `${summary} (${venueLabel})` : summary;
+    const locationStr = venueLabel && stadium ? `${venueLabel} at ${stadium}` : venueLabel || stadium || '';
 
     const start = wibToDate(year, month, day, hour, min);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
@@ -379,8 +408,8 @@ function parseLigaIndonesiaBaru(html, clubName) {
       end,
       allDay: false,
       summary,
-      description: clubName ? `${clubName} – ${summary}` : summary,
-      location,
+      description,
+      location: locationStr,
     });
   }
 
@@ -410,7 +439,17 @@ function parseLigaIndonesiaBaru(html, clubName) {
         if (i < 3) trace('parseLigaIndonesiaBaru fallback', 'opponent from link', opponent);
       }
       if (i < 3) trace('parseLigaIndonesiaBaru fallback', 'opponent', opponent);
-      const summary = clubName && opponent ? `${clubName} – ${opponent}` : clubName ? `${clubName} – Match` : 'Match';
+      const clubShort = !clubName ? '' : clubName === 'Persebaya Surabaya' ? 'Persebaya' : clubName;
+      let homeAway = '';
+      if (clubName && opponent && fixtureByDate.has(dateKey)) {
+        const [t1, t2] = fixtureByDate.get(dateKey);
+        homeAway = (normTeam(t1) === normTeam(clubName) || normTeam(t1).includes(normTeam(clubName)) || normTeam(clubName).includes(normTeam(t1))) ? 'H' : 'A';
+      }
+      const venueLabel = homeAway === 'H' ? 'Home' : homeAway === 'A' ? 'Away' : '';
+      const summary = clubName && opponent
+        ? (homeAway === 'A' ? `${opponent} – ${clubShort}` : `${clubShort} – ${opponent}`)
+        : clubName ? `${clubName} – Match` : 'Match';
+      const description = venueLabel ? `${summary} (${venueLabel})` : summary;
       const start = wibToDate(year, month, day, 19, 0);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
       events.push({
@@ -418,8 +457,8 @@ function parseLigaIndonesiaBaru(html, clubName) {
         end,
         allDay: false,
         summary,
-        description: `${day} ${monthName} ${year}`,
-        location: '',
+        description,
+        location: venueLabel,
       });
     }
   }
@@ -593,6 +632,28 @@ async function getFootballScheduleEvents(source) {
   if (events.length === 0 && url.includes('transfermarkt.co.id')) {
     trace('getFootballScheduleEvents', 'using Transfermarkt parser');
     events = parseTransfermarkt(html, clubName);
+  }
+
+  // Enrich Transfermarkt events with stadium from Liga Indonesia Baru when stadiumSourceUrl is set
+  if (events.length > 0 && url.includes('transfermarkt.co.id') && source?.stadiumSourceUrl?.includes('ligaindonesiabaru.com')) {
+    const stadiumHtml = await fetchHtml(source.stadiumSourceUrl);
+    if (stadiumHtml) {
+      const libEvents = parseLigaIndonesiaBaru(stadiumHtml, clubName);
+      const stadiumByDate = new Map();
+      for (const ev of libEvents) {
+        const d = ev.start;
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const stadium = ev.location && ev.location.includes(' at ') ? ev.location.split(' at ').slice(1).join(' at ').trim() : '';
+        if (stadium) stadiumByDate.set(dateKey, stadium);
+      }
+      for (const ev of events) {
+        const d = ev.start;
+        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const stadium = stadiumByDate.get(dateKey);
+        if (stadium && ev.location) ev.location = `${ev.location} at ${stadium}`;
+      }
+      trace('getFootballScheduleEvents', 'enriched with stadium from Liga Indonesia Baru');
+    }
   }
 
   if (events.length === 0) {
