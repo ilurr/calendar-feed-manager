@@ -644,11 +644,15 @@ exports.handler = async (event) => {
   if (type === 'url') {
     const icsBody = await fetchUrlIcs(source);
     if (icsBody) {
+      const noCache = event.queryStringParameters?.refresh === '1';
+      const cacheControl = noCache
+        ? 'no-cache, no-store, must-revalidate'
+        : 'public, max-age=3600';
       return {
         statusCode: 200,
         headers: {
           'Content-Type': 'text/calendar; charset=utf-8',
-          'Cache-Control': 'public, max-age=3600',
+          'Cache-Control': cacheControl,
         },
         body: icsBody,
       };
@@ -663,11 +667,17 @@ exports.handler = async (event) => {
   const events = await getEventsForFeed(feedId, type, source);
   const icsBody = buildIcs(feedId, name, events);
 
+  // refresh=1 bypasses cache so subscribers can force a re-crawl
+  const noCache = event.queryStringParameters?.refresh === '1';
+  const cacheControl = noCache
+    ? 'no-cache, no-store, must-revalidate'
+    : 'public, max-age=300';
+
   return {
     statusCode: 200,
     headers: {
       'Content-Type': 'text/calendar; charset=utf-8',
-      'Cache-Control': 'public, max-age=300',
+      'Cache-Control': cacheControl,
     },
     body: icsBody,
   };
