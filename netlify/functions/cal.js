@@ -77,18 +77,37 @@ function trace(...args) {
   if (TRACE_SCRAPE) console.log('[cal scrape]', ...args);
 }
 
+/** Browser-like headers for sites that block simple crawlers (e.g. Transfermarkt/Cloudflare). */
+const BROWSER_HEADERS = {
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+  'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+  'Accept-Language': 'id,en-US;q=0.9,en;q=0.8',
+  'Accept-Encoding': 'gzip, deflate, br',
+  'Cache-Control': 'no-cache',
+  'Pragma': 'no-cache',
+  'Sec-Fetch-Dest': 'document',
+  'Sec-Fetch-Mode': 'navigate',
+  'Sec-Fetch-Site': 'none',
+  'Upgrade-Insecure-Requests': '1',
+};
+
 /**
  * Fetch HTML from a URL for crawling.
+ * @param {string} url
+ * @param {{ browserLike?: boolean, referer?: string }} [opts] - browser-like headers, optional referer
  */
-async function fetchHtml(url) {
+async function fetchHtml(url, opts = {}) {
   if (!url || typeof url !== 'string') return null;
   trace('fetchHtml', url);
   try {
+    const baseHeaders = opts.browserLike ? { ...BROWSER_HEADERS } : {
+      'User-Agent': 'Mozilla/5.0 (compatible; CalendarSync/1.0; +https://github.com/calendar-ios-sync)',
+      'Accept': 'text/html,application/xhtml+xml',
+    };
+    if (opts.referer) baseHeaders['Referer'] = opts.referer;
     const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (compatible; CalendarSync/1.0; +https://github.com/calendar-ios-sync)',
-        'Accept': 'text/html,application/xhtml+xml',
-      },
+      headers: baseHeaders,
+      signal: AbortSignal.timeout(15000),
     });
     if (!res.ok) {
       trace('fetchHtml fail', res.status, res.statusText);
@@ -98,7 +117,7 @@ async function fetchHtml(url) {
     trace('fetchHtml ok', html?.length, 'bytes');
     return html;
   } catch (err) {
-    trace('fetchHtml error', err?.message || err);
+    trace('fetchHtml error', err?.message || err, err?.cause ? String(err.cause) : '');
     return null;
   }
 }
@@ -210,6 +229,12 @@ function parseTableFixtures(html, clubName) {
 const ID_MONTHS = {
   Januari: 1, Februari: 2, Maret: 3, April: 4, Mei: 5, Juni: 6,
   Juli: 7, Agustus: 8, September: 9, Oktober: 10, November: 11, Desember: 12
+};
+
+/** Transfermarkt uses abbreviated months: Agt, Sep, Okt, Nov, Des, Jan, Feb, Mar, Apr, Mei, Jun, Jul */
+const ID_MONTH_ABBREV = {
+  Jan: 1, Feb: 2, Mar: 3, Apr: 4, Mei: 5, Jun: 6, Jul: 7,
+  Agt: 8, Sep: 9, Okt: 10, Nov: 11, Des: 12
 };
 
 /** Normalize for comparison: uppercase, single spaces. */
@@ -395,6 +420,85 @@ function parseLigaIndonesiaBaru(html, clubName) {
 }
 
 /**
+ * Parse Transfermarkt club schedule page. Table format: Tanggal | Waktu | H/A | Lawan (opponent).
+ * Date: "Jum 8 Agt 2025" (day abbrev, day, month abbrev, year). Time: "19.00" (HH.MM).
+ * Ref: https://www.transfermarkt.co.id/persebaya-surabaya/spielplan/verein/31444
+ */
+function parseTransfermarkt(html, clubName) {
+  const events = [];
+  const $ = cheerio.load(html);
+
+  // Find the fixtures table (has Tanggal + Lawan columns)
+  $('table').each((_, table) => {
+    const $table = $(table);
+    const headerText = $table.find('thead th, thead td, tr:first-child td, tr:first-child th').text();
+    if (!headerText.includes('Tanggal') || !headerText.includes('Lawan')) return;
+
+    $table.find('tr').each((__, row) => {
+      const $row = $(row);
+      const cells = $row.find('td');
+      if (cells.length < 4) return;
+
+      let dateStr = '';
+      let timeStr = '';
+      let opponent = '';
+
+      cells.each((i, cell) => {
+        const $cell = $(cell);
+        const text = $cell.text().trim();
+
+        // Date: "Jum 8 Agt 2025"
+        const dateMatch = text.match(/^(?:Jum|Sab|Min|Sen|Sel|Rab|Kam)\s+(\d{1,2})\s+(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agt|Sep|Okt|Nov|Des)\s+(\d{4})$/i);
+        if (dateMatch) dateStr = text;
+
+        // Time: "19.00" or "05.00"
+        if (/^\d{1,2}\.\d{2}$/.test(text)) timeStr = text;
+
+        // Opponent: link to club page (href contains verein + startseite)
+        const $link = $cell.find('a[href*="verein"][href*="startseite"]').first();
+        if ($link.length) {
+          opponent = $link.text().trim().replace(/\s*\(\d+\.?\)\s*$/, '').trim();
+        }
+      });
+
+      if (!dateStr || !opponent) return;
+
+      const dm = dateStr.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|Mei|Jun|Jul|Agt|Sep|Okt|Nov|Des)\s+(\d{4})/i);
+      if (!dm) return;
+
+      const day = parseInt(dm[1], 10);
+      const monthAbbrev = dm[2];
+      const year = parseInt(dm[3], 10);
+      const month = (ID_MONTH_ABBREV[monthAbbrev] ?? ID_MONTH_ABBREV[monthAbbrev.charAt(0).toUpperCase() + monthAbbrev.slice(1).toLowerCase()]) - 1;
+
+      let hour = 19;
+      let min = 0;
+      if (timeStr) {
+        const [h, m] = timeStr.split('.').map((n) => parseInt(n, 10));
+        hour = h;
+        min = m || 0;
+      }
+
+      const start = new Date(year, month, day, hour, min, 0);
+      const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
+      const summary = clubName ? `${clubName} – ${opponent}` : opponent;
+
+      events.push({
+        start,
+        end,
+        allDay: false,
+        summary,
+        description: summary,
+        location: '',
+      });
+    });
+  });
+
+  trace('parseTransfermarkt', 'found', events.length, 'event(s)');
+  return events;
+}
+
+/**
  * Fetch HTML with optional Referer (for sites that load content via AJAX).
  */
 async function fetchHtmlWithReferer(url, referer) {
@@ -440,7 +544,11 @@ async function getFootballScheduleEvents(source) {
     return [];
   }
 
-  let html = await fetchHtml(url);
+  const isTransfermarkt = url.includes('transfermarkt.co.id');
+  let html = await fetchHtml(url, {
+    browserLike: isTransfermarkt,
+    referer: isTransfermarkt ? 'https://www.transfermarkt.co.id/' : undefined,
+  });
   if (!html) {
     trace('getFootballScheduleEvents', 'no html, return []');
     return [];
@@ -459,6 +567,11 @@ async function getFootballScheduleEvents(source) {
         trace('getFootballScheduleEvents', 'pagination events', events.length);
       }
     }
+  }
+
+  if (events.length === 0 && url.includes('transfermarkt.co.id')) {
+    trace('getFootballScheduleEvents', 'using Transfermarkt parser');
+    events = parseTransfermarkt(html, clubName);
   }
 
   if (events.length === 0) {
