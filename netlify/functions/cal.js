@@ -237,6 +237,15 @@ const ID_MONTH_ABBREV = {
   Agt: 8, Sep: 9, Okt: 10, Nov: 11, Des: 12
 };
 
+/** WIB = Western Indonesian Time, UTC+7. Create Date from local Indonesian time (e.g. Transfermarkt, Liga Indonesia). */
+function wibToDate(year, monthIndex, day, hour, min) {
+  const m = monthIndex + 1;
+  const h = hour ?? 19;
+  const mn = min ?? 0;
+  const dateStr = `${year}-${String(m).padStart(2, '0')}-${String(day).padStart(2, '0')}T${String(h).padStart(2, '0')}:${String(mn).padStart(2, '0')}:00+07:00`;
+  return new Date(dateStr);
+}
+
 /** Normalize for comparison: uppercase, single spaces. */
 function normTeam(s) {
   return (s || '').toUpperCase().replace(/\s+/g, ' ').trim();
@@ -363,7 +372,7 @@ function parseLigaIndonesiaBaru(html, clubName) {
       }
     }
 
-    const start = new Date(year, month, day, hour, min, 0);
+    const start = wibToDate(year, month, day, hour, min);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
     events.push({
       start,
@@ -402,7 +411,7 @@ function parseLigaIndonesiaBaru(html, clubName) {
       }
       if (i < 3) trace('parseLigaIndonesiaBaru fallback', 'opponent', opponent);
       const summary = clubName && opponent ? `${clubName} – ${opponent}` : clubName ? `${clubName} – Match` : 'Match';
-      const start = new Date(year, month, day, 19, 0, 0);
+      const start = wibToDate(year, month, day, 19, 0);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
       events.push({
         start,
@@ -479,7 +488,7 @@ function parseTransfermarkt(html, clubName) {
         min = m || 0;
       }
 
-      const start = new Date(year, month, day, hour, min, 0);
+      const start = wibToDate(year, month, day, hour, min);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
       const summary = clubName ? `${clubName} – ${opponent}` : opponent;
 
