@@ -451,6 +451,7 @@ function parseTransfermarkt(html, clubName) {
       let dateStr = '';
       let timeStr = '';
       let opponent = '';
+      let homeAway = ''; // H = Home, A = Away (Tempat pertandingan)
 
       cells.each((i, cell) => {
         const $cell = $(cell);
@@ -462,6 +463,9 @@ function parseTransfermarkt(html, clubName) {
 
         // Time: "19.00" or "05.00"
         if (/^\d{1,2}\.\d{2}$/.test(text)) timeStr = text;
+
+        // Venue: H (Home) or A (Away)
+        if (text === 'H' || text === 'A') homeAway = text;
 
         // Opponent: link to club page (href contains verein + startseite)
         const $link = $cell.find('a[href*="verein"][href*="startseite"]').first();
@@ -490,15 +494,23 @@ function parseTransfermarkt(html, clubName) {
 
       const start = wibToDate(year, month, day, hour, min);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
-      const summary = clubName ? `${clubName} – ${opponent}` : opponent;
+      const venueLabel = homeAway === 'H' ? 'Home' : homeAway === 'A' ? 'Away' : '';
+      // Summary: Home = "Team Home – Team Away", Away = "Team Away – Team Home". Short name: Persebaya Surabaya → Persebaya.
+      const clubShort = !clubName ? '' : clubName === 'Persebaya Surabaya' ? 'Persebaya' : clubName;
+      const summary = clubShort
+        ? homeAway === 'A'
+          ? `${opponent} – ${clubShort}`
+          : `${clubShort} – ${opponent}`
+        : opponent;
+      const description = venueLabel ? `${summary} (${venueLabel})` : summary;
 
       events.push({
         start,
         end,
         allDay: false,
         summary,
-        description: summary,
-        location: '',
+        description,
+        location: venueLabel,
       });
     });
   });
