@@ -106,7 +106,7 @@ exports.handler = async (event) => {
       statusCode: 400,
       headers,
       body: JSON.stringify({ error: 'type "url" requires source.url' }),
-    });
+    };
   }
   if (entry.type === 'scrape' && (!entry.source.url || typeof entry.source.url !== 'string')) {
     return {
