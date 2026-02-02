@@ -39,7 +39,8 @@ function getAyyamulBidhEvents() {
   const events = [];
   const seen = new Set();
 
-  for (let hy = startHy; hy <= startHy + 2; hy++) {
+  // Range: full current Hijri year + next Hijri year (keep past events too).
+  for (let hy = startHy; hy <= startHy + 1; hy++) {
     for (let hm = 1; hm <= 12; hm++) {
       for (const hd of [13, 14, 15]) {
         try {
@@ -66,9 +67,7 @@ function getAyyamulBidhEvents() {
   }
 
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
-  const cutoff = new Date(today);
-  cutoff.setDate(cutoff.getDate() - 1);
-  return events.filter((ev) => ev.start >= cutoff);
+  return events;
 }
 
 const TRACE_SCRAPE = process.env.TRACE_SCRAPE === '1' || process.env.NODE_ENV !== 'production';
