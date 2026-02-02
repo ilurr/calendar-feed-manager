@@ -115,8 +115,18 @@ Feeds are defined in `netlify/functions/feeds-registry.json`. Example entries:
 
 ## Adding a new feed
 
-1. Edit `netlify/functions/feeds-registry.json` (or use the **Add feed (admin)** section in the app to generate JSON).
-2. If the type is supported (`url`, `api`, `scrape`), redeploy. The feed appears at `/cal/<id>.ics`.
+**Option A: Add feed via UI (opens a GitHub PR)**
+
+1. In the app, expand **Add feed**, fill the form (ID, name, type, URL or scrape/api options), and click **Add feed (open PR)**.
+2. A Netlify Function creates a branch, updates `feeds-registry.json`, and opens a Pull Request. Merge the PR; the next deploy will include the new feed.
+3. **Required:** In Netlify → Site settings → Environment variables, set:
+   - **GITHUB_TOKEN** – A GitHub Personal Access Token with `repo` scope (so the function can create a branch and open a PR).
+   - **REPOSITORY_URL** – Usually set automatically when the site is linked to a Git repo (e.g. `https://github.com/owner/repo.git`). If missing, set it to your repo URL.
+
+**Option B: Edit the registry by hand**
+
+1. Edit `netlify/functions/feeds-registry.json` and add an entry (see examples above).
+2. Commit, push, and deploy. The feed appears at `/cal/<id>.ics`.
 3. For a **new scrape source**, add a parser in `netlify/functions/cal.js` and wire it in `getFootballScheduleEvents`.
 
 ## Adding a new feed type
