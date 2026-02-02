@@ -158,12 +158,6 @@ See `netlify/functions/FEED_TYPES.md` for the feed type contract and event shape
 - Scraped feeds are cached 5 minutes at CDN; after that, requests trigger a fresh crawl.
 - Use the **Refresh** button to re-crawl immediately. To force your calendar app to update, remove and re-add the subscription.
 
-## Repository
-
-Source code: **[calendar-feed-manager](https://github.com/ilurr/calendar-feed-manager)** 
-
-To show the GitHub link in the app footer, set `githubRepoUrl` in `src/App.vue` to your repo URL (e.g. `https://github.com/ilurr/calendar-feed-manager`).
-
 ## License
 
 MIT.
