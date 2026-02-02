@@ -772,11 +772,8 @@ async function getFootballScheduleEvents(source) {
   }
 
   events.sort((a, b) => a.start.getTime() - b.start.getTime());
-  const cutoff = new Date();
-  cutoff.setDate(cutoff.getDate() - 1);
-  const filtered = events.filter((ev) => ev.start >= cutoff);
-  trace('getFootballScheduleEvents', 'done', filtered.length, 'event(s) after filter');
-  return filtered;
+  trace('getFootballScheduleEvents', 'done', events.length, 'event(s)');
+  return events;
 }
 
 /**

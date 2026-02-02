@@ -113,7 +113,7 @@ exports.handler = async (event) => {
       statusCode: 400,
       headers,
       body: JSON.stringify({ error: 'type "scrape" requires source.url' }),
-    });
+    };
   }
 
   const { owner, repo: repoName } = repo;
