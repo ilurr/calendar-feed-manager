@@ -48,7 +48,6 @@ function copyUrl(feedId) {
 
 const copyFeedback = ref(null)
 const refreshFeedback = ref(null)
-const showAdmin = ref(false)
 
 async function refreshFeed(feedId) {
   refreshFeedback.value = feedId
@@ -60,50 +59,6 @@ async function refreshFeed(feedId) {
     refreshFeedback.value = `err:${feedId}`
   }
   setTimeout(() => { refreshFeedback.value = null }, 3000)
-}
-const adminMode = ref('url')
-const newFeed = ref({
-  id: '',
-  name: '',
-  sourceUrl: '',
-})
-const newScrapeFeed = ref({
-  id: '',
-  name: '',
-  clubName: '',
-  crawlUrl: '',
-})
-const generatedJson = ref('')
-
-function generateFeedJson() {
-  if (adminMode.value === 'url') {
-    const { id, name, sourceUrl } = newFeed.value
-    if (!id.trim() || !name.trim() || !sourceUrl.trim()) {
-      generatedJson.value = ''
-      return
-    }
-    generatedJson.value = JSON.stringify(
-      { id: id.trim(), name: name.trim(), type: 'url', source: { url: sourceUrl.trim() } },
-      null,
-      2
-    )
-    return
-  }
-  const { id, name, clubName, crawlUrl } = newScrapeFeed.value
-  if (!id.trim() || !name.trim() || !crawlUrl.trim()) {
-    generatedJson.value = ''
-    return
-  }
-  generatedJson.value = JSON.stringify(
-    {
-      id: id.trim(),
-      name: name.trim(),
-      type: 'scrape',
-      source: { url: crawlUrl.trim(), clubName: clubName.trim() || undefined },
-    },
-    null,
-    2
-  )
 }
 </script>
 
@@ -156,108 +111,6 @@ function generateFeedJson() {
       <p class="text-sm text-gray-500 mt-6">
         Subscribe using &quot;Add to Calendar&quot; or copy the URL and add it in iOS/Mac Calendar. Use &quot;Refresh&quot; to re-crawl the source; your calendar app will pick up changes on its next sync (usually within a few hours). To unsubscribe, remove the calendar in the Calendar app.
       </p>
-
-      <section class="mt-10 pt-8 border-t border-gray-200">
-        <button
-          type="button"
-          class="text-sm text-gray-600 hover:text-gray-800"
-          @click="showAdmin = !showAdmin"
-        >
-          {{ showAdmin ? 'Hide' : 'Add feed (admin)' }}
-        </button>
-        <div v-if="showAdmin" class="mt-4 bg-white rounded-lg border border-gray-200 p-4 space-y-4">
-          <p class="text-sm text-gray-600">
-            Add an entry to <code class="bg-gray-100 px-1 rounded">netlify/functions/feeds-registry.json</code> in the repo. Use this form to generate the JSON.
-          </p>
-          <div class="flex gap-4 mb-4">
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input v-model="adminMode" type="radio" value="url" class="rounded" @change="generateFeedJson" />
-              <span class="text-sm">URL proxy (.ics)</span>
-            </label>
-            <label class="inline-flex items-center gap-2 cursor-pointer">
-              <input v-model="adminMode" type="radio" value="scrape" class="rounded" @change="generateFeedJson" />
-              <span class="text-sm">Football schedule (crawl)</span>
-            </label>
-          </div>
-          <div v-if="adminMode === 'url'" class="grid gap-3 max-w-md">
-            <label class="block text-sm font-medium text-gray-700">
-              ID (slug, e.g. <code>my-calendar</code>)
-              <input
-                v-model="newFeed.id"
-                type="text"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                @input="generateFeedJson"
-              />
-            </label>
-            <label class="block text-sm font-medium text-gray-700">
-              Name
-              <input
-                v-model="newFeed.name"
-                type="text"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                @input="generateFeedJson"
-              />
-            </label>
-            <label class="block text-sm font-medium text-gray-700">
-              Source URL (.ics)
-              <input
-                v-model="newFeed.sourceUrl"
-                type="url"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                placeholder="https://..."
-                @input="generateFeedJson"
-              />
-            </label>
-          </div>
-          <div v-else class="grid gap-3 max-w-md">
-            <label class="block text-sm font-medium text-gray-700">
-              ID (slug, e.g. <code>inter-25-26</code>)
-              <input
-                v-model="newScrapeFeed.id"
-                type="text"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                @input="generateFeedJson"
-              />
-            </label>
-            <label class="block text-sm font-medium text-gray-700">
-              Name (e.g. Inter 25/26)
-              <input
-                v-model="newScrapeFeed.name"
-                type="text"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                @input="generateFeedJson"
-              />
-            </label>
-            <label class="block text-sm font-medium text-gray-700">
-              Club name (optional, for event descriptions)
-              <input
-                v-model="newScrapeFeed.clubName"
-                type="text"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                placeholder="e.g. Inter"
-                @input="generateFeedJson"
-              />
-            </label>
-            <label class="block text-sm font-medium text-gray-700">
-              URL to crawl (fixture page)
-              <input
-                v-model="newScrapeFeed.crawlUrl"
-                type="url"
-                class="mt-1 block w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm"
-                placeholder="https://www.transfermarkt.com/..."
-                @input="generateFeedJson"
-              />
-            </label>
-            <p class="text-xs text-gray-500">
-              Suggested: Transfermarkt club/league schedule, Wikipedia season fixture table, or any page with JSON-LD Event or a fixture table.
-            </p>
-          </div>
-          <div v-if="generatedJson" class="mt-2">
-            <p class="text-xs font-medium text-gray-500 mb-1">Paste this into feeds-registry.json:</p>
-            <pre class="bg-gray-100 rounded p-3 text-xs overflow-x-auto">{{ generatedJson }}</pre>
-          </div>
-        </div>
-      </section>
     </main>
   </div>
 </template>
