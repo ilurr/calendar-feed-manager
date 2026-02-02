@@ -2,6 +2,8 @@
   {
     "id": "inter-25-26",
     "name": "Inter 25/26",
+    "teaser": "FC Internazionale Milano 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
     "type": "url",
     "source": {
       "url": "https://app.stanzacal.com/api/calendar/webcal/inter/65f18722ad1fa93828fcce93/678387aefd4be8a532bed99a.ics"
@@ -10,23 +12,18 @@
   {
     "id": "ayyamul-bidh",
     "name": "Ayyamul Bidh",
+    "teaser": "Fasting days reminder (13th, 14th, 15th of each Hijri month).",
+    "category": "religion",
     "type": "api",
     "source": {
       "provider": "ayyamul-bidh"
     }
   },
   {
-    "id": "persebaya-26",
-    "name": "Persebaya 2026",
-    "type": "scrape",
-    "source": {
-      "url": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA",
-      "clubName": "Persebaya Surabaya"
-    }
-  },
-  {
     "id": "persebaya-26-tm",
-    "name": "Persebaya 2026 (Transfermarkt)",
+    "name": "Persebaya 25/26",
+    "teaser": "Persebaya Surabaya 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
     "type": "scrape",
     "source": {
       "url": "https://www.transfermarkt.co.id/persebaya-surabaya/spielplan/verein/31444",

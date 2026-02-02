@@ -1,6 +1,8 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 
+const version = '0.1.0'
+const githubRepoUrl = 'https://github.com/your-username/calendar-feed-manager'
 const feeds = ref([])
 const loading = ref(true)
 
@@ -23,7 +25,35 @@ onMounted(async () => {
   }
 })
 
+const categoryLabels = {
+  religion: 'Religion',
+  football: 'Football',
+  other: 'Other',
+}
+
+const categoryTeasers = {
+  religion: 'Fasting days (Ayyamul Bidh), prayer times, and other Islamic calendar feeds.',
+  football: 'Club fixtures and match schedules. Subscribe to get games in your calendar.',
+  other: 'Other calendar feeds.',
+}
+
 const visibleFeeds = computed(() => feeds.value)
+
+const feedsByCategory = computed(() => {
+  const map = {}
+  for (const feed of feeds.value) {
+    const cat = feed.category || 'other'
+    if (!map[cat]) map[cat] = []
+    map[cat].push(feed)
+  }
+  const order = ['religion', 'football', 'other']
+  return order.filter((c) => map[c]?.length).map((c) => ({
+    id: c,
+    label: categoryLabels[c] || c,
+    teaser: categoryTeasers[c] || '',
+    feeds: map[c],
+  }))
+})
 
 function subscribeUrl(feedId) {
   const base = typeof window !== 'undefined' ? window.location.origin : ''
@@ -132,47 +162,71 @@ async function refreshFeed(feedId) {
 
 <template>
   <div class="min-h-screen bg-gray-50">
-    <header class="bg-white shadow-sm">
-      <div class="max-w-4xl mx-auto px-4 py-4">
-        <h1 class="text-xl font-semibold text-gray-800">Calendar Sync</h1>
+    <header class="bg-white shadow-sm border-b border-gray-200">
+      <div class="max-w-4xl mx-auto px-4 py-6">
+        <div class="flex items-center gap-2 flex-wrap">
+        <h1 class="text-2xl font-semibold text-gray-900 tracking-tight">Subs Calendar</h1>
+        <span class="inline-flex items-center px-1.5 py-px rounded text-[10px] font-medium bg-amber-100 text-amber-800 border border-amber-200">
+          Beta {{ version }}
+        </span>
+        </div>
+        <p class="mt-1 text-sm text-gray-600 max-w-xl">
+          Add feeds to your calendar.
+        </p>
       </div>
     </header>
     <main class="max-w-4xl mx-auto px-4 py-8">
-      <h2 class="text-lg font-medium text-gray-800 mb-4">My calendars</h2>
       <p v-if="loading" class="text-gray-500">Loading feeds…</p>
-      <ul v-else class="space-y-4">
-        <li
-          v-for="feed in visibleFeeds"
-          :key="feed.id"
-          class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap items-center gap-3"
+      <template v-else>
+        <section
+          v-for="group in feedsByCategory"
+          :key="group.id"
+          class="mb-8"
         >
-          <span class="font-medium text-gray-800">{{ feed.name }}</span>
-          <div class="flex items-center gap-2 flex-wrap">
-            <a
-              :href="webcalUrl(feed.id)"
-              class="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+          <h3 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-1">
+            {{ group.label }}
+          </h3>
+          <p v-if="group.teaser" class="text-sm text-gray-500 mb-3">
+            {{ group.teaser }}
+          </p>
+          <ul class="space-y-4">
+            <li
+              v-for="feed in group.feeds"
+              :key="feed.id"
+              class="bg-white rounded-lg shadow-sm border border-gray-200 p-4 flex flex-wrap items-center gap-3"
             >
-              Add to Calendar
-            </a>
-            <button
-              type="button"
-              class="inline-flex items-center px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 text-sm hover:bg-gray-50"
-              @click="copyUrl(feed.id)"
-            >
-              {{ copyFeedback === feed.id ? 'Copied!' : 'Copy URL' }}
-            </button>
-            <button
-              type="button"
-              class="inline-flex items-center px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-60"
-              :disabled="refreshFeedback === feed.id"
-              @click="refreshFeed(feed.id)"
-              title="Re-crawl the source. Your calendar app syncs periodically; to get updates immediately, remove and re-add this calendar."
-            >
-              {{ refreshFeedback === feed.id ? 'Checking…' : refreshFeedback === `ok:${feed.id}` ? 'Refreshed!' : refreshFeedback === `err:${feed.id}` ? 'Error' : 'Refresh' }}
-            </button>
-          </div>
-        </li>
-      </ul>
+              <div class="min-w-0 flex-1">
+                <span class="font-medium text-gray-800">{{ feed.name }}</span>
+                <p v-if="feed.teaser" class="text-sm text-gray-500 mt-0.5">{{ feed.teaser }}</p>
+              </div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <a
+                  :href="webcalUrl(feed.id)"
+                  class="inline-flex items-center px-3 py-1.5 rounded-md bg-blue-600 text-white text-sm hover:bg-blue-700"
+                >
+                  Add to Calendar
+                </a>
+                <button
+                  type="button"
+                  class="inline-flex items-center px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 text-sm hover:bg-gray-50"
+                  @click="copyUrl(feed.id)"
+                >
+                  {{ copyFeedback === feed.id ? 'Copied!' : 'Copy URL' }}
+                </button>
+                <button
+                  type="button"
+                  class="inline-flex items-center px-3 py-1.5 rounded-md border border-gray-300 bg-white text-gray-700 text-sm hover:bg-gray-50 disabled:opacity-60"
+                  :disabled="refreshFeedback === feed.id"
+                  @click="refreshFeed(feed.id)"
+                  title="Re-crawl the source. Your calendar app syncs periodically; to get updates immediately, remove and re-add this calendar."
+                >
+                  {{ refreshFeedback === feed.id ? 'Checking…' : refreshFeedback === `ok:${feed.id}` ? 'Refreshed!' : refreshFeedback === `err:${feed.id}` ? 'Error' : 'Refresh' }}
+                </button>
+              </div>
+            </li>
+          </ul>
+        </section>
+      </template>
       <p v-if="!loading && visibleFeeds.length === 0" class="text-gray-500 mt-4">
         No calendars in your list. Add feeds in the registry.
       </p>
@@ -186,11 +240,11 @@ async function refreshFeed(feedId) {
           class="text-sm text-gray-600 hover:text-gray-800"
           @click="showAddFeed = !showAddFeed"
         >
-          {{ showAddFeed ? 'Hide' : 'Add feed' }}
+          {{ showAddFeed ? 'Hide' : 'Propose a new feed' }}
         </button>
         <div v-if="showAddFeed" class="mt-4 bg-white rounded-lg border border-gray-200 p-4 space-y-4">
           <p class="text-sm text-gray-600">
-            Adds an entry to the registry and opens a GitHub Pull Request. Merge the PR to publish. Requires <code class="bg-gray-100 px-1 rounded">GITHUB_TOKEN</code> and <code class="bg-gray-100 px-1 rounded">REPOSITORY_URL</code> in Netlify.
+            Adds an entry to the registry. The feed will be added to the registry and published to the GitHub repository.
           </p>
           <div class="flex gap-4 mb-3">
             <label class="inline-flex items-center gap-2 cursor-pointer">
@@ -296,6 +350,25 @@ async function refreshFeed(feedId) {
           </div>
         </div>
       </section>
+
+      <footer class="mt-16 pt-8 pb-6 border-t border-gray-200 text-center text-sm text-gray-500">
+        <p class="mb-2">
+          Subs Calendar <span class="text-gray-400">·</span> Beta {{ version }}
+        </p>
+        <a
+          v-if="githubRepoUrl"
+          :href="githubRepoUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex items-center gap-1.5 text-gray-600 hover:text-gray-900"
+          aria-label="View on GitHub"
+        >
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd" />
+          </svg>
+          View on GitHub
+        </a>
+      </footer>
     </main>
   </div>
 </template>

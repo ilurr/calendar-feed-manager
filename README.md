@@ -1,19 +1,23 @@
-# Calendar Sync
+# Subs Calendar
 
-A mini app to manage calendar feed subscriptions for iOS/Mac Calendar (and other clients). Each feed is exposed as a public `.ics` URL. Add the URL once in Apple Calendar; events stay in sync. To unsubscribe, remove the calendar in the Calendar app.
+**Subs Calendar** (slug: `calendar-feed-manager`) – A mini app to manage calendar feed subscriptions for iOS/Mac Calendar (and other clients). Each feed is exposed as a public `.ics` URL. Add the URL once in Apple Calendar; events stay in sync. To unsubscribe, remove the calendar in the Calendar app.
+
+**Status:** Beta (v0.1.0)
 
 **Demo:** https://gakpaketelor-calender.netlify.app/
 
 ## Features
 
 - **Subscribe to .ics feeds** – Add to iOS/macOS Calendar with one click (webcal) or copy URL
+- **Categories** – Feeds grouped by category (Religion, Football). Each category and feed has a short teaser.
 - **URL proxy** – Proxy external .ics URLs through your own domain
 - **API feeds** – Generate calendars from APIs (e.g. Ayyamul Bidh fasting schedule using Hijri conversion)
-- **Scrape/crawl feeds** – Crawl football schedules from websites:
+- **Scrape/crawl feeds** – Crawl football schedules from websites (no date cutoff; all past and future fixtures):
   - [Liga Indonesia Baru](https://www.ligaindonesiabaru.com/) – club fixture pages
   - [Transfermarkt Indonesia](https://www.transfermarkt.co.id/) – club schedule pages with Home/Away detection
 - **Refresh button** – Re-crawl source data; subscribers get updates on next sync
 - **WIB timezone** – Indonesian football times are correctly converted to UTC for calendar apps
+- **Add feed via UI** – Propose a new feed; a GitHub PR is opened for the registry
 
 ## Stack
 
@@ -76,38 +80,47 @@ Tracing is on when `NODE_ENV !== 'production'`. To force it in production, set e
 
 ## Feed registry
 
-Feeds are defined in `netlify/functions/feeds-registry.json`. Example entries:
+Feeds are defined in `netlify/functions/feeds-registry.json`. Each entry can include optional `category` and `teaser` for the UI:
+
+| Field      | Required | Description |
+|-----------|----------|-------------|
+| `id`      | Yes      | Slug used in `/cal/<id>.ics` |
+| `name`    | Yes      | Display name |
+| `type`    | Yes      | `url`, `api`, or `scrape` |
+| `source`  | Yes      | Type-specific config (see Feed types) |
+| `category`| No       | Group in UI: `religion`, `football`, or omit for "Other" |
+| `teaser`  | No       | Short description under the feed name |
+
+Example entries (matches current registry):
 
 ```json
 [
   {
     "id": "inter-25-26",
     "name": "Inter 25/26",
+    "teaser": "FC Internazionale Milano 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
     "type": "url",
     "source": { "url": "https://app.stanzacal.com/api/calendar/webcal/inter/..." }
   },
   {
     "id": "ayyamul-bidh",
     "name": "Ayyamul Bidh",
+    "teaser": "Fasting days reminder (13th, 14th, 15th of each Hijri month).",
+    "category": "religion",
     "type": "api",
     "source": { "provider": "ayyamul-bidh" }
   },
   {
-    "id": "persebaya-26",
-    "name": "Persebaya 2026",
-    "type": "scrape",
-    "source": {
-      "url": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA",
-      "clubName": "Persebaya Surabaya"
-    }
-  },
-  {
     "id": "persebaya-26-tm",
-    "name": "Persebaya 2026 (Transfermarkt)",
+    "name": "Persebaya 25/26",
+    "teaser": "Persebaya Surabaya 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
     "type": "scrape",
     "source": {
       "url": "https://www.transfermarkt.co.id/persebaya-surabaya/spielplan/verein/31444",
-      "clubName": "Persebaya Surabaya"
+      "clubName": "Persebaya Surabaya",
+      "stadiumSourceUrl": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA"
     }
   }
 ]
@@ -144,6 +157,12 @@ See `netlify/functions/FEED_TYPES.md` for the feed type contract and event shape
 - Calendar apps (iOS, macOS, Google Calendar) refetch .ics URLs periodically (every few hours).
 - Scraped feeds are cached 5 minutes at CDN; after that, requests trigger a fresh crawl.
 - Use the **Refresh** button to re-crawl immediately. To force your calendar app to update, remove and re-add the subscription.
+
+## Repository
+
+Source code: **[calendar-feed-manager](https://github.com/ilurr/calendar-feed-manager)** (replace with your GitHub repo URL).
+
+To show the GitHub link in the app footer, set `githubRepoUrl` in `src/App.vue` to your repo URL (e.g. `https://github.com/ilurr/calendar-feed-manager`).
 
 ## License
 
