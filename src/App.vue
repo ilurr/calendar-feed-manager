@@ -2,7 +2,7 @@
 import { ref, computed, onMounted } from 'vue'
 
 const version = '0.1.0'
-const githubRepoUrl = 'https://github.com/your-username/calendar-feed-manager'
+const githubRepoUrl = 'https://github.com/ilurr/calendar-feed-manager'
 const feeds = ref([])
 const loading = ref(true)
 

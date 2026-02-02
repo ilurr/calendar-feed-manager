@@ -160,7 +160,7 @@ See `netlify/functions/FEED_TYPES.md` for the feed type contract and event shape
 
 ## Repository
 
-Source code: **[calendar-feed-manager](https://github.com/ilurr/calendar-feed-manager)** (replace with your GitHub repo URL).
+Source code: **[calendar-feed-manager](https://github.com/ilurr/calendar-feed-manager)** 
 
 To show the GitHub link in the app footer, set `githubRepoUrl` in `src/App.vue` to your repo URL (e.g. `https://github.com/ilurr/calendar-feed-manager`).
 
