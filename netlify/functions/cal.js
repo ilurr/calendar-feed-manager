@@ -314,6 +314,104 @@ function parseFixtureLinksFromHtml(html) {
   return map;
 }
 
+/** Format stadium for display: trim, collapse whitespace, title-case, prefix "Stadion " if missing. */
+function formatStadiumName(s) {
+  if (!s || typeof s !== 'string') return '';
+  const t = s.trim().replace(/\s+/g, ' ');
+  if (!t) return '';
+  const title = t.split(' ').map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ');
+  return /^Stadion\s/i.test(title) ? title : `Stadion ${title}`;
+}
+
+/** Return true if a string looks like a stadium name (not score, time, or team). */
+function looksLikeStadium(s) {
+  const t = (s || '').trim();
+  if (t.length < 3) return false;
+  if (/^\d{1,2}\s*:\s*\d{2}$/.test(t) || /^FT\s*\d/i.test(t)) return false;
+  if (/^https?:/i.test(t)) return false;
+  if (/^\*\*/.test(t)) return false;
+  return /^[A-Za-z][A-Za-z0-9\s.\-]+$/.test(t);
+}
+
+/** Return true if string is likely a stadium (not a club name). Rejects "Home", "Away", "X FC". */
+function isStadiumName(s) {
+  const t = (s || '').trim();
+  if (!t) return false;
+  if (/^(Home|Away)$/i.test(t)) return false;
+  if (/\s+FC\s*$/i.test(t)) return false;
+  if (/UNITED\s+FC\s*$/i.test(t)) return false;
+  return /GELORA|STADION|KAPTEN|ARENA|BUNG\s*TOMO|LAUTAN|MANAHAN|KANJURUHAN|SULTAN|DIPTA|HABIBIE|MAGUWOHARJO|KARTINI|SEGIRI|JAKARTA|INTERNATIONAL\s+STADIUM|AGUS\s*SALIM|KIE\s*RAHA|INDOMILK|BANTEN\s*INTERNATIONAL|JOKO\s*SAMUDRO/i.test(t);
+}
+
+/** Stadium phrase regex when row is one cell with no pipes. */
+const STADIUM_PHRASE_RE = /(GELORA\s+[A-Za-z0-9\s.\-]+|KAPTEN\s+[A-Za-z0-9\s.\-]+|INDOMILK\s+ARENA|BANTEN\s+INTERNATIONAL\s+STADIUM|MAGUWOHARJO|KANJURUHAN|SULTAN\s+AGUNG|JAKARTA\s+INTERNATIONAL\s+STADIUM|H\.\s*AGUS\s*SALIM|KIE\s*RAHA|MANAHAN|SEGIRI|GELORA\s+B\.\s*J\.\s*HABIBIE|PKOR\s+SUMPAH\s+PEMUDA|GELORA\s+MADURA\s+RATU\s+PAMELINGAN|GELORA\s+BUMI\s+KARTINI)/gi;
+
+/** Extract stadium name by date from Liga Indonesia Baru HTML. Stadium at <td> index 5; link may wrap table so row = $(el).find('tr').first() when no ancestor tr. */
+function parseStadiumByDateFromHtml(html) {
+  const map = new Map();
+  const $ = cheerio.load(html);
+  const STADIUM_COLUMN_INDEX = 5;
+  $('a[href*="result/detail"]').each((_, el) => {
+    const href = $(el).attr('href') || '';
+    const parts = href.split('/').filter(Boolean);
+    if (parts.length < 5) return;
+    const dateKey = parts[parts.length - 3];
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateKey)) return;
+    const $parent = $(el).parent();
+    let $row = $parent.closest('tr');
+    if (!$row.length) $row = $(el).find('tr').first();
+    let stadium = '';
+
+    if ($row.length) {
+      const cells = $row.find('td').toArray();
+      if (cells.length > STADIUM_COLUMN_INDEX) {
+        const cellText = $(cells[STADIUM_COLUMN_INDEX]).text().trim();
+        if (looksLikeStadium(cellText) && isStadiumName(cellText)) stadium = cellText;
+      }
+      if (!stadium && cells.length > 0) {
+        const rowText = $row.text();
+        const segments = rowText.split(/\|/).map((s) => s.trim()).filter(Boolean);
+        for (let i = segments.length - 1; i >= 0; i--) {
+          if (looksLikeStadium(segments[i]) && isStadiumName(segments[i])) {
+            stadium = segments[i];
+            break;
+          }
+        }
+        if (!stadium && rowText) {
+          const matches = [...rowText.matchAll(STADIUM_PHRASE_RE)];
+          if (matches.length > 0) {
+            const last = matches[matches.length - 1][1].trim();
+            if (last && isStadiumName(last)) stadium = last;
+          }
+        }
+      }
+    }
+
+    if (!stadium) {
+      const blockText = $(el).text() || $parent.text() || '';
+      if (blockText) {
+        const segments = blockText.split(/\|/).map((s) => s.trim()).filter(Boolean);
+        for (let i = segments.length - 1; i >= 0; i--) {
+          if (looksLikeStadium(segments[i]) && isStadiumName(segments[i])) {
+            stadium = segments[i];
+            break;
+          }
+        }
+        if (!stadium) {
+          const matches = [...blockText.matchAll(STADIUM_PHRASE_RE)];
+          if (matches.length > 0) {
+            const last = matches[matches.length - 1][1].trim();
+            if (last && isStadiumName(last)) stadium = last;
+          }
+        }
+      }
+    }
+
+    if (stadium) map.set(dateKey, formatStadiumName(stadium));
+  });
+  return map;
+}
+
 /**
  * Parse Liga Indonesia Baru club page: Indonesian date (DD Month YYYY) + match line (TEAM FT score TEAM or TEAM HH:MM TEAM) + venue.
  * Fixture content may be in initial HTML or loaded via AJAX; we parse whatever we get.
@@ -324,6 +422,7 @@ function parseLigaIndonesiaBaru(html, clubName) {
   const $ = cheerio.load(html);
   const text = $('body').text();
   const fixtureByDate = parseFixtureLinksFromHtml(html);
+  const stadiumByDate = parseStadiumByDateFromHtml(html);
   const idMonthRe = /(Januari|Februari|Maret|April|Mei|Juni|Juli|Agustus|September|Oktober|November|Desember)/i;
   const timeRe = /(\d{1,2}):(\d{2})/;
 
@@ -397,9 +496,14 @@ function parseLigaIndonesiaBaru(html, clubName) {
       }
     }
 
+    if (!stadium) {
+      const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+      stadium = stadiumByDate.get(dateKey) || '';
+    }
+    stadium = stadium && !/^(Home|Away)$/i.test(stadium.trim()) ? formatStadiumName(stadium) : '';
     const venueLabel = homeAway === 'H' ? 'Home' : homeAway === 'A' ? 'Away' : '';
     const description = venueLabel ? `${summary} (${venueLabel})` : summary;
-    const locationStr = venueLabel && stadium ? `${venueLabel} at ${stadium}` : venueLabel || stadium || '';
+    const locationStr = stadium || '';
 
     const start = wibToDate(year, month, day, hour, min);
     const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
@@ -450,6 +554,7 @@ function parseLigaIndonesiaBaru(html, clubName) {
         ? (homeAway === 'A' ? `${opponent} – ${clubShort}` : `${clubShort} – ${opponent}`)
         : clubName ? `${clubName} – Match` : 'Match';
       const description = venueLabel ? `${summary} (${venueLabel})` : summary;
+      const locationStr = stadiumByDate.get(dateKey) || '';
       const start = wibToDate(year, month, day, 19, 0);
       const end = new Date(start.getTime() + 2 * 60 * 60 * 1000);
       events.push({
@@ -458,7 +563,7 @@ function parseLigaIndonesiaBaru(html, clubName) {
         allDay: false,
         summary,
         description,
-        location: venueLabel,
+        location: locationStr,
       });
     }
   }
@@ -543,13 +648,15 @@ function parseTransfermarkt(html, clubName) {
         : opponent;
       const description = venueLabel ? `${summary} (${venueLabel})` : summary;
 
+      if (events.length < 3) trace('parseTransfermarkt', 'venueLabel', venueLabel, 'homeAway', homeAway, 'summary', summary, 'date', `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`);
+
       events.push({
         start,
         end,
         allDay: false,
         summary,
         description,
-        location: venueLabel,
+        location: '',
       });
     });
   });
@@ -636,23 +743,23 @@ async function getFootballScheduleEvents(source) {
 
   // Enrich Transfermarkt events with stadium from Liga Indonesia Baru when stadiumSourceUrl is set
   if (events.length > 0 && url.includes('transfermarkt.co.id') && source?.stadiumSourceUrl?.includes('ligaindonesiabaru.com')) {
+    trace('getFootballScheduleEvents', 'enrich: fetching stadiumSourceUrl', source.stadiumSourceUrl);
     const stadiumHtml = await fetchHtml(source.stadiumSourceUrl);
     if (stadiumHtml) {
-      const libEvents = parseLigaIndonesiaBaru(stadiumHtml, clubName);
-      const stadiumByDate = new Map();
-      for (const ev of libEvents) {
-        const d = ev.start;
-        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        const stadium = ev.location && ev.location.includes(' at ') ? ev.location.split(' at ').slice(1).join(' at ').trim() : '';
-        if (stadium) stadiumByDate.set(dateKey, stadium);
-      }
+      trace('getFootballScheduleEvents', 'enrich: stadiumHtml ok', stadiumHtml.length, 'bytes');
+      const stadiumByDate = parseStadiumByDateFromHtml(stadiumHtml);
+      trace('getFootballScheduleEvents', 'enrich: stadiumByDate size', stadiumByDate.size, Array.from(stadiumByDate.entries()).slice(0, 3));
+      let enriched = 0;
       for (const ev of events) {
         const d = ev.start;
-        const dateKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        const dateKey = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}-${String(d.getUTCDate()).padStart(2, '0')}`;
         const stadium = stadiumByDate.get(dateKey);
-        if (stadium && ev.location) ev.location = `${ev.location} at ${stadium}`;
+        ev.location = stadium || '';
+        if (stadium) enriched++;
       }
-      trace('getFootballScheduleEvents', 'enriched with stadium from Liga Indonesia Baru');
+      trace('getFootballScheduleEvents', 'enriched with stadium', enriched, 'of', events.length);
+    } else {
+      trace('getFootballScheduleEvents', 'enrich: stadiumHtml failed (null)');
     }
   }
 
