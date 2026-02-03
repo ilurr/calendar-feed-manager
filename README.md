@@ -17,7 +17,6 @@
   - [Transfermarkt Indonesia](https://www.transfermarkt.co.id/) – club schedule pages with Home/Away detection
 - **Refresh button** – Re-crawl source data; subscribers get updates on next sync
 - **WIB timezone** – Indonesian football times are correctly converted to UTC for calendar apps
-- **Add feed via UI** – Propose a new feed; a GitHub PR is opened for the registry
 
 ## Stack
 
@@ -128,17 +127,7 @@ Example entries (matches current registry):
 
 ## Adding a new feed
 
-**Option A: Add feed via UI (opens a GitHub PR)**
-
-1. In the app, expand **Add feed**, fill the form (ID, name, type, URL or scrape/api options), and click **Add feed (open PR)**.
-2. A Netlify Function creates a branch, updates `feeds-registry.json`, and opens a Pull Request. Merge the PR; the next deploy will include the new feed.
-3. **Required:** In Netlify → Site settings → Environment variables, set:
-   - **GITHUB_TOKEN** – A GitHub Personal Access Token with `repo` scope (so the function can create a branch and open a PR).
-   - **REPOSITORY_URL** – Usually set automatically when the site is linked to a Git repo (e.g. `https://github.com/owner/repo.git`). If missing, set it to your repo URL.
-
-**Option B: Edit the registry by hand**
-
-1. Edit `netlify/functions/feeds-registry.json` and add an entry (see examples above).
+1. Edit `netlify/functions/feeds-registry.json` and add an entry (see examples above). Include `id`, `name`, `type`, `source`, and optionally `category` and `teaser`.
 2. Commit, push, and deploy. The feed appears at `/cal/<id>.ics`.
 3. For a **new scrape source**, add a parser in `netlify/functions/cal.js` and wire it in `getFootballScheduleEvents`.
 
