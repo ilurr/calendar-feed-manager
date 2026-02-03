@@ -30,5 +30,29 @@
       "clubName": "Persebaya Surabaya",
       "stadiumSourceUrl": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSEBAYA_SURABAYA"
     }
+  },
+  {
+    "id": "persib-26-tm",
+    "name": "Persib 25/26",
+    "teaser": "Persib Bandung 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
+    "type": "scrape",
+    "source": {
+      "url": "https://www.transfermarkt.co.id/persib-bandung/spielplan/verein/14105",
+      "clubName": "Persib Bandung",
+      "stadiumSourceUrl": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSIB_BANDUNG"
+    }
+  },
+  {
+    "id": "persija-26-tm",
+    "name": "Persija 25/26",
+    "teaser": "Persija Jakarta 25/26 season fixtures. Subscribe to get match dates in your calendar.",
+    "category": "football",
+    "type": "scrape",
+    "source": {
+      "url": "https://www.transfermarkt.co.id/persija-jakarta/spielplan/verein/14107",
+      "clubName": "Persija Jakarta",
+      "stadiumSourceUrl": "https://www.ligaindonesiabaru.com/clubs/single/BRI_SUPER_LEAGUE_2025-26/PERSIJA_JAKARTA"
+    }
   }
 ]
